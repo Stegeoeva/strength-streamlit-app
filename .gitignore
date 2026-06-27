@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+.venv/
+venv/
+
+.streamlit/secrets.toml
+
+.DS_Store
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+*.log
+streamlit.pid
+streamlit.out.log
+streamlit.err.log
+streamlit.verify.*.out.log
+streamlit.verify.*.err.log
+
+# Large source/export formats not used by the Streamlit runtime.
+*.eps

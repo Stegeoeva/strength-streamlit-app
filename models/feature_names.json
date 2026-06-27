@@ -1,0 +1,111 @@
+{
+  "source_artifacts": "models_constrained_nup2",
+  "selected_model_pair": {
+    "mu": "SVRrbf_phys",
+    "beta": "HGB_phys"
+  },
+  "notes": [
+    "The saved scikit-learn Pipeline objects include preprocessing.",
+    "No separate scaler.pkl is required for the current bundled artifacts.",
+    "The user-facing geometry input is wall length; the app computes area = length^2 before model inference.",
+    "The mu model predicts fragility_median, interpreted as median collapse flood depth.",
+    "The beta model predicts fragility_beta, interpreted as lognormal fragility dispersion."
+  ],
+  "mu": {
+    "filename": "final_model_mu.joblib",
+    "source_filename": "models_constrained_nup2/mu_SVRrbf_phys.joblib",
+    "target_column": "fragility_median",
+    "feature_order": [
+      "density",
+      "opening",
+      "thickness",
+      "Z",
+      "area",
+      "n_upper",
+      "boundary",
+      "sqrt_area",
+      "open_len",
+      "tz"
+    ],
+    "derived_features": {
+      "area": "length^2",
+      "sqrt_area": "length",
+      "open_len": "opening * length",
+      "tz": "thickness * Z"
+    },
+    "preprocessing": "Pipeline ColumnTransformer: StandardScaler on numeric and physics-lite features, OneHotEncoder(handle_unknown='ignore') on boundary."
+  },
+  "beta": {
+    "filename": "final_model_beta.joblib",
+    "source_filename": "models_constrained_nup2/best_model_beta_HGB_phys.joblib",
+    "target_column": "fragility_beta",
+    "feature_order": [
+      "density",
+      "opening",
+      "thickness",
+      "Z",
+      "area",
+      "n_upper",
+      "boundary",
+      "sqrt_area",
+      "open_len",
+      "tz"
+    ],
+    "derived_features": {
+      "area": "length^2",
+      "sqrt_area": "length",
+      "open_len": "opening * length",
+      "tz": "thickness * Z"
+    },
+    "preprocessing": "Pipeline ColumnTransformer: StandardScaler on numeric and physics-lite features, OneHotEncoder(handle_unknown='ignore') on boundary."
+  },
+  "fragility_probability": {
+    "formula": "Phi((ln(S) - ln(mu)) / beta)",
+    "S": "selected flood depth in metres"
+  },
+  "model_domain": {
+    "density": [
+      1200,
+      2200
+    ],
+    "opening": [
+      0.10,
+      0.40
+    ],
+    "thickness": [
+      0.20,
+      0.50
+    ],
+    "Z": [
+      2.40,
+      4.00
+    ],
+    "length": [
+      3.0,
+      12.0
+    ],
+    "area": [
+      9.0,
+      144.0
+    ],
+    "n_upper": [
+      0,
+      2
+    ],
+    "boundaries": [
+      "P1 (1-edge)",
+      "P2 (2-edges)",
+      "P3 (3-edges)",
+      "P4 (4-edges)"
+    ],
+    "additional_constraints": [
+      "P1 requires n_upper = 0.",
+      "P3 requires length/Z <= 4.0.",
+      "P4 requires length/Z <= 2.75.",
+      "thickness < 0.22 m requires n_upper = 0.",
+      "thickness < 0.24 m requires n_upper <= 1.",
+      "wall length > 10 m requires thickness >= 0.28 m.",
+      "loaded walls longer than 10 m require thickness >= 0.30 m."
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "mu": {
+    "target": "mu",
+    "target_column": "fragility_median",
+    "model": "SVRrbf_phys",
+    "use_phys_lite": true,
+    "cv_r2_mean": 0.9975530371003734,
+    "cv_r2_std": 0.00010875042544153935,
+    "cv_mae_mean": 0.02438920632908081,
+    "cv_mae_std": 0.0006518349154867156,
+    "features": [
+      "density",
+      "opening",
+      "thickness",
+      "Z",
+      "area",
+      "n_upper",
+      "boundary",
+      "sqrt_area",
+      "open_len",
+      "tz"
+    ],
+    "model_path": "models/final_model_mu.joblib",
+    "holdout_metrics": {
+      "r2": 0.997471,
+      "mae": 0.024486,
+      "rmse": null,
+      "mbe": null
+    }
+  },
+  "beta": {
+    "target": "beta",
+    "target_column": "fragility_beta",
+    "model": "HGB_phys",
+    "use_phys_lite": true,
+    "cv_r2_mean": 0.9459248874296977,
+    "cv_r2_std": 0.0033236738580364597,
+    "cv_mae_mean": 0.006028535877952429,
+    "cv_mae_std": 0.00017263296761794493,
+    "features": [
+      "density",
+      "opening",
+      "thickness",
+      "Z",
+      "area",
+      "n_upper",
+      "boundary",
+      "sqrt_area",
+      "open_len",
+      "tz"
+    ],
+    "model_path": "models/final_model_beta.joblib",
+    "holdout_metrics": {
+      "r2": 0.9478455851063325,
+      "mae": 0.005938218944887387,
+      "rmse": 0.00788548594459482,
+      "mbe": 0.000303501819800086
+    }
+  },
+  "selected_model_pair": {
+    "source": "models_constrained_nup2/best_models_manifest.json",
+    "mu": "SVRrbf_phys",
+    "beta": "HGB_phys",
+    "branch": "constrained_nup2"
+  }
+}
