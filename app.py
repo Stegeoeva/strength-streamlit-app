@@ -348,7 +348,7 @@ def show_full_width_figure(path: Path, caption: str | None = None) -> None:
 
 def format_display_number(value: object, *, decimals: int = 2, trim: bool = True) -> str:
     if pd.isna(value):
-        return ""
+        return "N/A"
     text = f"{float(value):.{decimals}f}"
     if trim:
         text = text.rstrip("0").rstrip(".")
@@ -367,7 +367,7 @@ def display_frame(
     integer_columns = integer_columns or set()
     for col in out.columns:
         if col in integer_columns:
-            out[col] = out[col].map(lambda value: "" if pd.isna(value) else f"{int(value)}")
+            out[col] = out[col].map(lambda value: "N/A" if pd.isna(value) else f"{int(value)}")
         elif pd.api.types.is_numeric_dtype(out[col]):
             if col in probability_columns:
                 out[col] = out[col].map(lambda value: format_display_number(value, decimals=3, trim=False))

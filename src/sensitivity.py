@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from .predict import ModelBundle, predict_cases
+from .predict import ModelBundle, effective_beta, predict_cases
 from .utils import (
     ANALYSIS_MODES,
     BOUNDARY_OPTIONS,
@@ -129,8 +129,9 @@ def _fragility_probability_at_depths(
     mu_safe = np.asarray(mu, dtype=float)
     beta_safe = np.asarray(beta, dtype=float)
     depth_safe = np.asarray(flood_depths, dtype=float)
-    invalid = (mu_safe <= 0) | (beta_safe <= 0) | (depth_safe <= 0)
-    z_score = (np.log(np.maximum(depth_safe, 1e-12)) - np.log(np.maximum(mu_safe, 1e-12))) / np.maximum(beta_safe, 1e-12)
+    invalid = (mu_safe <= 0) | (depth_safe <= 0) | ~np.isfinite(mu_safe) | ~np.isfinite(beta_safe) | ~np.isfinite(depth_safe)
+    beta_eff = effective_beta(beta_safe)
+    z_score = (np.log(np.maximum(depth_safe, 1e-12)) - np.log(np.maximum(mu_safe, 1e-12))) / beta_eff
     probabilities = norm.cdf(z_score)
     probabilities[invalid] = np.nan
     return probabilities

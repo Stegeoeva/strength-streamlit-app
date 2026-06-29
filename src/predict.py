@@ -13,6 +13,13 @@ from .preprocess import prepare_model_frame
 from .utils import MODELS_DIR, constraint_violations, normalize_case, read_json
 
 
+BETA_MIN = 0.001
+
+
+def effective_beta(beta: np.ndarray | float) -> np.ndarray:
+    return np.maximum(np.asarray(beta, dtype=float), BETA_MIN)
+
+
 @dataclass(frozen=True)
 class ModelArtifact:
     target: str
@@ -162,7 +169,7 @@ def predict_cases(
     if output_key == "mu":
         return _predict_artifact(bundle.mu, rows)
     if output_key == "beta":
-        return _predict_artifact(bundle.beta, rows)
+        return effective_beta(_predict_artifact(bundle.beta, rows))
     if output_key == "probability":
         mu = _predict_artifact(bundle.mu, rows)
         beta = _predict_artifact(bundle.beta, rows)
@@ -173,7 +180,7 @@ def predict_cases(
 def predict_single(bundle: ModelBundle, case: dict[str, Any], *, flood_depth: float = 1.5) -> dict[str, float]:
     row = _normalize_valid_cases([case])
     mu = float(_predict_artifact(bundle.mu, row)[0])
-    beta = float(_predict_artifact(bundle.beta, row)[0])
+    beta = float(effective_beta(_predict_artifact(bundle.beta, row))[0])
     probability = float(fragility_probability(np.array([mu]), np.array([beta]), flood_depth)[0])
     return {"mu": mu, "beta": beta, "probability": probability}
 
@@ -184,8 +191,9 @@ def fragility_probability(mu: np.ndarray, beta: np.ndarray, flood_depth: float) 
         raise ValueError("Flood depth must be positive for fragility probability.")
     mu_safe = np.asarray(mu, dtype=float)
     beta_safe = np.asarray(beta, dtype=float)
-    invalid = (mu_safe <= 0) | (beta_safe <= 0)
-    z = (np.log(depth) - np.log(np.maximum(mu_safe, 1e-12))) / np.maximum(beta_safe, 1e-12)
+    invalid = (mu_safe <= 0) | ~np.isfinite(mu_safe) | ~np.isfinite(beta_safe)
+    beta_eff = effective_beta(beta_safe)
+    z = (np.log(depth) - np.log(np.maximum(mu_safe, 1e-12))) / beta_eff
     probs = norm.cdf(z)
     probs[invalid] = np.nan
     return probs
