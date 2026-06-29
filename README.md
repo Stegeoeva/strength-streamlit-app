@@ -1,12 +1,12 @@
-# Machine Learning-Based Masonry-Wall Sensitivity Web App
+# Machine Learning Based Masonry Wall Sensitivity Web App
 
-This Streamlit app provides a graphical interface for estimating flood-induced out-of-plane collapse fragility of masonry walls. It uses pretrained machine-learning surrogate models to predict the lognormal fragility parameters `mu` and `beta`, then supports single-case prediction and sensitivity heatmaps for capacity, dispersion, and collapse-probability interpretation.
+This Streamlit app provides a graphical interface for estimating flood-induced out-of-plane collapse fragility of masonry walls. It uses pretrained machine learning surrogate models to predict the lognormal fragility parameters `mu` and `beta`, then supports single case prediction and sensitivity heatmaps for capacity, dispersion, and collapse probability interpretation.
 
-The app does not retrain models. It loads the bundled pretrained model artifacts from `models/`, checks user inputs against the constrained study domain, and runs inference only for valid wall configurations.
+The app does not retrain models. It loads the bundled ML pretrained models from `models/`, checks user inputs against the constrained study domain, and runs inference only for valid wall configurations.
 
 ## Features
 
-- Single-wall prediction with dynamic input controls.
+- Single wall prediction with dynamic input controls.
 - Current configuration summary with scientific notation and symbol definitions.
 - Sensitivity heatmaps for:
   - median collapse flood depth, `mu` (m);
@@ -14,8 +14,8 @@ The app does not retrain models. It loads the bundled pretrained model artifacts
   - normalized median collapse depth, `mu/Z` (-);
   - collapse probability at selected flood depth, `P(C | h)` (%);
   - collapse probability at selected relative flood depth, `P(C | h/Z)` (%).
-- Representative wall-case table and project visuals.
-- Default wall length/span `L = 4.0 m`.
+- Representative wall case table and project visuals.
+- Default wall length/span `L = 5.0 m`.
 
 ## Folder Structure
 
@@ -64,16 +64,16 @@ http://127.0.0.1:8501
 
 ## Model Files
 
-Pretrained model artifacts are stored in `models/`:
+ML pretrained models are stored in `models/`:
 
 - `models/final_model_mu.joblib`
 - `models/final_model_beta.joblib`
 - `models/best_models_manifest.json`
 - `models/feature_names.json`
 
-The `mu` model is a Support Vector Machine surrogate and the `beta` model is a Histogram Gradient Boosting surrogate. Both are serialized scikit-learn `Pipeline` objects with embedded preprocessing. The app uses these artifacts directly and does not retrain them.
+The `mu` model is a Support Vector Machine surrogate and the `beta` model is a Histogram Gradient Boosting surrogate. Both are serialized scikit-learn `Pipeline` objects with embedded preprocessing. The app uses these ML pretrained models directly and does not retrain them.
 
-The bundled beta artifact uses the compact `HGB_phys` model, so the model files are small enough for a standard GitHub repository without Git LFS.
+The bundled beta model uses the compact `HGB_phys` model, so the model files are small enough for a standard GitHub repository without Git LFS.
 
 ## Assets
 

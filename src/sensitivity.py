@@ -173,7 +173,7 @@ def generate_sensitivity_heatmap(
     output_key: str = "mu",
     flood_depth: float = 1.5,
     relative_flood_depth: float = 0.50,
-    length: float = 4.0,
+    length: float = 5.0,
     n_upper: int = 2,
     boundary: str = "P3 (3-edges)",
     floor_height: float = 3.0,

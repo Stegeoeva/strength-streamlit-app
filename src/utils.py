@@ -36,10 +36,10 @@ HOUSE_BOUNDARY_IMAGE_PATHS = {
 }
 
 ANALYSIS_MODES = [
-    "1. Z - Wall case index",
-    "2. BC - Wall case index",
-    "3. L - Wall case index",
-    "4. Number of upper floors - Wall case index",
+    "1. Z vs Wall case index",
+    "2. BC vs Wall case index",
+    "3. L vs Wall case index",
+    "4. Number of upper floors vs Wall case index",
 ]
 
 OUTPUT_LABELS = {

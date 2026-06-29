@@ -46,8 +46,9 @@ HEATMAP_OUTPUT_METRICS = ["mu", "beta", "mu_over_z", "probability", "probability
 
 
 st.set_page_config(
-    page_title="Machine Learning-Based Masonry-Wall Sensitivity Analysis",
+    page_title="Machine Learning Based Masonry Wall Sensitivity Analysis",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -168,14 +169,24 @@ st.markdown(
     .config-symbol {
         display: block;
         font-style: italic;
+        font-size: 0.98rem;
+        font-weight: 700;
         line-height: 1.15;
+        margin-top: 0.04rem;
+    }
+    .config-symbol sub,
+    .config-legend-symbol sub,
+    .field-label sub {
+        font-size: 0.72em;
+        line-height: 0;
+        vertical-align: sub;
     }
     .config-icon {
         width: 40px;
         height: 40px;
         object-fit: contain;
         display: block;
-        margin: 0 auto 0.3rem;
+        margin: 0 auto 0.18rem;
         opacity: 0.92;
     }
     .config-unit {
@@ -210,6 +221,13 @@ st.markdown(
         font-weight: 700;
         text-align: right;
     }
+    .field-label {
+        color: rgb(49, 51, 63);
+        font-size: 0.875rem;
+        font-weight: 400;
+        line-height: 1.35;
+        margin: 0 0 0.22rem;
+    }
     .current-config-summary-body {
         align-items: stretch;
     }
@@ -222,9 +240,9 @@ st.markdown(
         width: 100%;
         min-width: 560px;
         height: 100%;
-        min-height: 250px;
+        min-height: 222px;
         display: grid;
-        grid-template-rows: minmax(0, 0.74fr) minmax(0, 0.26fr);
+        grid-template-rows: minmax(0, 0.68fr) minmax(0, 0.32fr);
     }
     .current-config-icon-row,
     .current-config-value-row {
@@ -244,7 +262,7 @@ st.markdown(
     }
     .current-config-icon-row .current-config-cell {
         flex-direction: column;
-        padding: 0.95rem 0.45rem 0.85rem;
+        padding: 0.62rem 0.4rem 0.56rem;
         border-bottom: 1px solid rgba(22, 51, 95, 0.20);
         background: #f8fafc;
         color: #111827;
@@ -252,14 +270,16 @@ st.markdown(
         font-weight: 700;
     }
     .current-config-value-row .current-config-cell {
-        padding: 0.22rem 0.45rem;
+        padding: 0.48rem 0.45rem 0.52rem;
         font-size: 0.94rem;
+        line-height: 1.22;
+        font-weight: 500;
         color: #111827;
     }
     .current-config-grid .config-icon {
-        width: 48px;
-        height: 48px;
-        margin-bottom: 0.42rem;
+        width: 42px;
+        height: 42px;
+        margin-bottom: 0.2rem;
     }
     .symbol-definitions-panel {
         height: 100%;
@@ -276,11 +296,8 @@ st.markdown(
         .current-config-table-panel {
             display: block;
         }
-        .current-config-table {
-            min-height: 0;
-        }
         .current-config-grid {
-            min-height: 0;
+            min-height: 218px;
         }
         .symbol-definitions-panel {
             height: auto;
@@ -297,6 +314,9 @@ st.markdown(
         }
         .config-summary-table {
             min-width: 520px;
+        }
+        .current-config-grid {
+            min-height: 205px;
         }
     }
 </style>
@@ -353,6 +373,29 @@ def format_display_number(value: object, *, decimals: int = 2, trim: bool = True
     if trim:
         text = text.rstrip("0").rstrip(".")
     return "0" if text == "-0" else text
+
+
+def render_field_label(label_html: str) -> None:
+    st.markdown(f'<div class="field-label">{label_html}</div>', unsafe_allow_html=True)
+
+
+def _safe_number_token(value: float, *, decimals: int = 2, keep_trailing: bool = False) -> str:
+    text = f"{float(value):.{decimals}f}"
+    if not keep_trailing:
+        text = text.rstrip("0").rstrip(".")
+        if "." not in text:
+            text = f"{text}.0"
+    return text.replace("-", "minus_").replace(".", "p").lower()
+
+
+def heatmap_csv_filename(output_key: str, *, flood_depth: float, relative_flood_depth: float) -> str:
+    if output_key == "probability":
+        token = f"probability_h_{_safe_number_token(flood_depth)}m"
+    elif output_key == "probability_relative":
+        token = f"probability_h_over_z_{_safe_number_token(relative_flood_depth, keep_trailing=True)}"
+    else:
+        token = output_key.lower().replace("/", "_").replace(" ", "_")
+    return f"strength_heatmap_{token}.csv"
 
 
 def display_frame(
@@ -550,7 +593,7 @@ def uses_p1(boundaries: list[str]) -> bool:
 try:
     bundle = cached_model_bundle(MODEL_CACHE_VERSION)
 except Exception as exc:
-    st.error("The pretrained model artifacts could not be loaded.")
+    st.error("The ML pretrained models could not be loaded.")
     st.exception(exc)
     st.stop()
 
@@ -559,13 +602,13 @@ logo_col, intro_col = st.columns([0.3, 0.7])
 with logo_col:
     show_image(LOGO_PATH, width=330)
 with intro_col:
-    st.title("Machine Learning-Based Masonry-Wall Sensitivity Analysis")
+    st.title("Machine Learning Based Masonry Wall Sensitivity Analysis")
     st.write(
-        "This graphical user interface applies pretrained machine-learning surrogate models to "
-        "estimate masonry-wall flood fragility parameters inside the constrained domain of the "
-        "study. It supports single-wall prediction and sensitivity heatmaps for fragility median "
+        "This graphical user interface applies pretrained machine learning surrogate models to "
+        "estimate masonry wall flood fragility parameters inside the constrained domain of the "
+        "study. It supports single wall prediction and sensitivity heatmaps for fragility median "
         "\u03bc, fragility dispersion \u03b2, and collapse probability at a selected flood depth h, while "
-        "checking wall geometry, boundary condition, vertical loading, and representative wall-case "
+        "checking wall geometry, boundary condition, vertical loading, and representative wall case "
         "constraints before inference."
     )
 
@@ -574,7 +617,7 @@ if st.toggle("Project workflow and model context", value=False):
 
 with st.sidebar:
     st.header("Model")
-    st.success("Pretrained artifacts loaded")
+    st.success("Loaded ML pretrained models")
     st.dataframe(
         compact_model_frame(),
         hide_index=True,
@@ -587,7 +630,7 @@ with st.sidebar:
     )
 
 tab_single, tab_sensitivity, tab_reference, tab_model = st.tabs(
-    ["Single-case prediction", "Sensitivity heatmap", "Wall case indices and images", "Model details"]
+    ["Single case prediction", "Sensitivity heatmap", "Wall case indices and images", "Model details"]
 )
 
 with tab_single:
@@ -600,7 +643,7 @@ with tab_single:
         single_is_p1 = single_boundary.startswith("P1")
         if single_is_p1 and st.session_state.get("single_n_upper", 0) != 0:
             st.session_state["single_n_upper"] = 0
-        st.markdown("Number of upper floors, $N_f$")
+        render_field_label("Number of upper floors, <em>N</em><sub>f</sub>")
         single_n_upper = st.number_input(
             "Number of upper floors",
             min_value=0,
@@ -612,7 +655,7 @@ with tab_single:
             help="P1 constrained cases require zero upper floors.",
             label_visibility="collapsed",
         )
-        single_length = st.number_input("Wall length/span, L (m)", min_value=3.0, max_value=12.0, value=4.0, step=0.5, format="%g", key="single_length")
+        single_length = st.number_input("Wall length/span, L (m)", min_value=3.0, max_value=12.0, value=5.0, step=0.5, format="%g", key="single_length")
         single_floor_height = st.number_input("Wall height, Z (m)", min_value=2.4, max_value=4.0, value=3.0, step=0.1, format="%g", key="single_floor_height")
         single_flood_depth = st.number_input(
             "Flood depth, h (m)",
@@ -634,7 +677,7 @@ with tab_single:
             ]
         )
         if not valid_single_levels:
-            st.error("No wall case index satisfies the constrained model rules for this single-case setup.")
+            st.error("No wall case index satisfies the constrained model rules for this single case setup.")
             st.stop()
         single_level = st.selectbox("Wall case index", valid_single_levels, index=min(3, len(valid_single_levels) - 1), key="single_level")
         if len(valid_single_levels) < 10:
@@ -712,7 +755,7 @@ with tab_sensitivity:
     if hm_is_p1 and st.session_state.get("hm_n_upper", 0) != 0:
         st.session_state["hm_n_upper"] = 0
     with common_b:
-        st.markdown("Fixed $N_f$")
+        render_field_label("Fixed <em>N</em><sub>f</sub>")
         hm_n_upper = st.number_input(
             "Fixed number of upper floors",
             min_value=0,
@@ -725,7 +768,7 @@ with tab_sensitivity:
             label_visibility="collapsed",
         )
     with common_c:
-        hm_length = st.number_input("Fixed L (m)", min_value=3.0, max_value=12.0, value=4.0, step=0.5, format="%g")
+        hm_length = st.number_input("Fixed L (m)", min_value=3.0, max_value=12.0, value=5.0, step=0.5, format="%g")
     with common_d:
         hm_floor = st.number_input("Fixed Z (m)", min_value=2.4, max_value=4.0, value=3.0, step=0.1, format="%g")
 
@@ -750,7 +793,7 @@ with tab_sensitivity:
         selected_boundaries = st.multiselect("BC set", BOUNDARY_OPTIONS, default=boundary_default)
         if int(hm_n_upper) > 0 and uses_p1(selected_boundaries):
             st.info(
-                "For BC - Wall case index heatmaps, P1 is included with zero upper floors; "
+                "For BC vs wall case index heatmaps, P1 is included with zero upper floors; "
                 f"the other selected BC values use $N_f$ = {int(hm_n_upper)}."
             )
     elif number == "3":
@@ -768,7 +811,7 @@ with tab_sensitivity:
             st.session_state["hm_upper_max"] = 0
         r1, r2 = st.columns(2)
         with r1:
-            st.markdown("$N_f$ min")
+            render_field_label("<em>N</em><sub>f</sub> min")
             n_upper_min = st.number_input(
                 "Minimum number of upper floors",
                 min_value=0,
@@ -781,7 +824,7 @@ with tab_sensitivity:
                 label_visibility="collapsed",
             )
         with r2:
-            st.markdown("$N_f$ max")
+            render_field_label("<em>N</em><sub>f</sub> max")
             n_upper_max = st.number_input(
                 "Maximum number of upper floors",
                 min_value=0,
@@ -869,7 +912,11 @@ with tab_sensitivity:
         st.download_button(
             "Download heatmap values as CSV",
             data=long_df.to_csv(index=False).encode("utf-8"),
-            file_name=f"strength_ml_heatmap_{result.output_key}_values.csv",
+            file_name=heatmap_csv_filename(
+                result.output_key,
+                flood_depth=heatmap_flood_depth,
+                relative_flood_depth=heatmap_relative_depth,
+            ),
             mime="text/csv",
         )
 
@@ -888,7 +935,7 @@ with tab_model:
     )
     st.markdown(
         """
-The interface uses pretrained machine-learning surrogate models for immediate inference.
+The interface uses pretrained machine learning surrogate models for immediate inference.
 Compared with the mechanics-based Monte Carlo workflow, the already-computed repository
 timing study shows orders-of-magnitude acceleration for batch prediction while preserving
 the constrained input rules used to generate the training data.
