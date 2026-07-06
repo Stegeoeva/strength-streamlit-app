@@ -32,6 +32,7 @@ constraint_violations = app_utils.constraint_violations
 house_image_for_boundary = app_utils.house_image_for_boundary
 normalize_case = app_utils.normalize_case
 quality_level_table = app_utils.quality_level_table
+mode_key = app_utils.mode_key
 valid_quality_levels_for_cases = app_utils.valid_quality_levels_for_cases
 
 MODEL_CACHE_VERSION = "2026-06-27-hgb-beta-l4"
@@ -729,7 +730,7 @@ with tab_sensitivity:
     top_left, top_right = st.columns([2.3, 0.9])
     with top_left:
         mode = st.selectbox("Sensitivity mode", ANALYSIS_MODES, index=0)
-        number = mode.split(".", 1)[0]
+        sensitivity_mode_key = mode_key(mode)
         output_key = st.selectbox(
             "Heatmap output metric",
             HEATMAP_OUTPUT_METRICS,
@@ -774,13 +775,13 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
     hm_floor = 3.0
 
     fixed_controls = []
-    if number != "1":
+    if sensitivity_mode_key != "bc_vs_wall_case":
         fixed_controls.append("boundary")
-    if number != "4":
+    if sensitivity_mode_key != "nf_vs_wall_case":
         fixed_controls.append("n_upper")
-    if number != "3":
+    if sensitivity_mode_key != "l_vs_wall_case":
         fixed_controls.append("length")
-    if number != "2":
+    if sensitivity_mode_key != "z_vs_wall_case":
         fixed_controls.append("floor")
 
     if fixed_controls:
@@ -825,12 +826,12 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
                         key="hm_fixed_z",
                     )
     varied_notes = {
-        "1": "Varied by the selected mode: BC and wall case index.",
-        "2": "Varied by the selected mode: Z and wall case index.",
-        "3": "Varied by the selected mode: L and wall case index.",
-        "4": "Varied by the selected mode: $N_f$ and wall case index.",
+        "bc_vs_wall_case": "Varied by the selected mode: BC and wall case index.",
+        "z_vs_wall_case": "Varied by the selected mode: Z and wall case index.",
+        "l_vs_wall_case": "Varied by the selected mode: L and wall case index.",
+        "nf_vs_wall_case": "Varied by the selected mode: $N_f$ and wall case index.",
     }
-    st.caption(varied_notes.get(number, "Wall case index is varied by the selected heatmap columns."))
+    st.caption(varied_notes.get(sensitivity_mode_key, "Wall case index is varied by the selected heatmap columns."))
 
     hm_is_p1 = hm_boundary.startswith("P1")
     floor_min = 2.5
@@ -842,7 +843,7 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
     n_upper_max = 2
     selected_boundaries = BOUNDARY_OPTIONS
 
-    if number == "1":
+    if sensitivity_mode_key == "bc_vs_wall_case":
         boundary_default = BOUNDARY_OPTIONS
         selected_boundaries = st.multiselect("BC set", BOUNDARY_OPTIONS, default=boundary_default)
         if int(hm_n_upper) > 0 and uses_p1(selected_boundaries):
@@ -850,13 +851,13 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
                 "For BC vs wall case index heatmaps, P1 is included with zero upper floors; "
                 f"the other selected BC values use $N_f$ = {int(hm_n_upper)}."
             )
-    elif number == "2":
+    elif sensitivity_mode_key == "z_vs_wall_case":
         r1, r2 = st.columns(2)
         with r1:
             floor_min = st.number_input("Z range min (m)", min_value=2.4, max_value=4.0, value=2.5, step=0.1, format="%g")
         with r2:
             floor_max = st.number_input("Z range max (m)", min_value=2.4, max_value=4.0, value=3.5, step=0.1, format="%g")
-    elif number == "3":
+    elif sensitivity_mode_key == "l_vs_wall_case":
         r1, r2, r3 = st.columns(3)
         with r1:
             length_min = st.number_input("L range min (m)", min_value=3.0, max_value=12.0, value=3.0, step=0.5, format="%g")
@@ -864,7 +865,7 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
             length_max = st.number_input("L range max (m)", min_value=3.0, max_value=12.0, value=10.0, step=0.5, format="%g")
         with r3:
             length_step = st.number_input("L range step (m)", min_value=0.1, value=0.5, step=0.1, format="%g")
-    elif number == "4":
+    elif sensitivity_mode_key == "nf_vs_wall_case":
         upper_floor_max = 0 if hm_is_p1 else 2
         r1, r2 = st.columns(2)
         with r1:
@@ -895,19 +896,19 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
             )
 
     heatmap_templates = []
-    if number == "1":
+    if sensitivity_mode_key == "bc_vs_wall_case":
         heatmap_templates = [
             {"Z": hm_floor, "length": hm_length, "n_upper": 0 if b.startswith("P1") else int(hm_n_upper), "boundary": b}
             for b in selected_boundaries
         ]
-    elif number == "2":
+    elif sensitivity_mode_key == "z_vs_wall_case":
         y_values = [round(x * 0.1, 10) for x in range(int(round(floor_min * 10)), int(round(floor_max * 10)) + 1)]
         heatmap_templates = [{"Z": z, "length": hm_length, "n_upper": int(hm_n_upper), "boundary": hm_boundary} for z in y_values]
-    elif number == "3":
+    elif sensitivity_mode_key == "l_vs_wall_case":
         n_steps = int(round((length_max - length_min) / length_step)) if length_step > 0 else 0
         y_values = [round(length_min + idx * length_step, 10) for idx in range(n_steps + 1)]
         heatmap_templates = [{"Z": hm_floor, "length": length, "n_upper": int(hm_n_upper), "boundary": hm_boundary} for length in y_values]
-    elif number == "4":
+    elif sensitivity_mode_key == "nf_vs_wall_case":
         heatmap_templates = [{"Z": hm_floor, "length": hm_length, "n_upper": nup, "boundary": hm_boundary} for nup in range(int(n_upper_min), int(n_upper_max) + 1)]
 
     valid_heatmap_levels = valid_quality_levels_for_cases(heatmap_templates)
@@ -925,7 +926,7 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
     try:
         result = generate_sensitivity_heatmap(
             bundle,
-            mode=mode,
+            mode=sensitivity_mode_key,
             levels=selected_levels,
             output_key=output_key,
             flood_depth=heatmap_flood_depth,

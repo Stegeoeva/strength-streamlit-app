@@ -17,8 +17,9 @@ from .utils import (
     constraint_violations,
     float_grid,
     format_axis_value,
-    mode_number,
+    mode_key,
     normalize_boundary,
+    sensitivity_mode_title,
 )
 
 
@@ -58,16 +59,16 @@ def sensitivity_axis(
     n_upper_max: int,
     selected_boundaries: list[str],
 ) -> tuple[list[Any], str]:
-    number = mode_number(mode)
-    if number == "1":
+    key = mode_key(mode)
+    if key == "z_vs_wall_case":
+        return list(float_grid(floor_min, floor_max, 0.1)), "Z (m)"
+    if key == "bc_vs_wall_case":
         if not selected_boundaries:
             raise ValueError("Select at least one boundary condition.")
         return [normalize_boundary(boundary) for boundary in selected_boundaries], "BC"
-    if number == "2":
-        return list(float_grid(floor_min, floor_max, 0.1)), "Z (m)"
-    if number == "3":
+    if key == "l_vs_wall_case":
         return list(float_grid(length_min, length_max, length_step)), "L (m)"
-    if number == "4":
+    if key == "nf_vs_wall_case":
         if int(n_upper_min) > int(n_upper_max):
             raise ValueError("Upper-floor range minimum must be <= maximum.")
         return list(range(int(n_upper_min), int(n_upper_max) + 1)), "$N_f$"
@@ -84,21 +85,21 @@ def _case_for_axis_value(
     boundary: str,
     floor_height: float,
 ) -> dict[str, Any]:
-    number = mode_number(mode)
+    key = mode_key(mode)
     case_length = float(length)
     case_n_upper = int(n_upper)
     case_boundary = normalize_boundary(boundary)
     case_z = float(floor_height)
 
-    if number == "1":
+    if key == "z_vs_wall_case":
+        case_z = float(axis_value)
+    elif key == "bc_vs_wall_case":
         case_boundary = normalize_boundary(axis_value)
         if case_boundary.startswith("P1"):
             case_n_upper = 0
-    elif number == "2":
-        case_z = float(axis_value)
-    elif number == "3":
+    elif key == "l_vs_wall_case":
         case_length = float(axis_value)
-    elif number == "4":
+    elif key == "nf_vs_wall_case":
         case_n_upper = int(axis_value)
 
     return case_from_quality(
@@ -237,12 +238,7 @@ def generate_sensitivity_heatmap(
     )
     matrix = np.asarray(values, dtype=float).reshape(len(y_values), len(selected_levels))
 
-    title_map = {
-        "1": "BC vs Wall case index",
-        "2": "Z vs Wall case index",
-        "3": "L vs Wall case index",
-        "4": "$N_f$ vs Wall case index",
-    }
+    selected_mode_key = mode_key(mode)
 
     records: list[dict[str, Any]] = []
     for case, (y_value, level), value in zip(cases, metadata, values):
@@ -270,8 +266,8 @@ def generate_sensitivity_heatmap(
         )
 
     return SensitivityResult(
-        mode=mode,
-        title=f"{value_label}\n{title_map.get(mode_number(mode), 'Sensitivity Heatmap')}",
+        mode=selected_mode_key,
+        title=f"{value_label}\n{sensitivity_mode_title(selected_mode_key)}",
         y_label=y_label,
         y_values=y_values,
         levels=selected_levels,

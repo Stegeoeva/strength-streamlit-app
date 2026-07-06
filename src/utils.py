@@ -35,12 +35,27 @@ HOUSE_BOUNDARY_IMAGE_PATHS = {
     "P4": ASSETS_DIR / "House_c4_color.jpg",
 }
 
-ANALYSIS_MODES = [
-    "1. BC vs Wall case index",
-    "2. Z vs Wall case index",
-    "3. L vs Wall case index",
-    "4. Number of upper floors vs Wall case index",
-]
+SENSITIVITY_MODES = {
+    "BC vs Wall case index": "bc_vs_wall_case",
+    "Z vs Wall case index": "z_vs_wall_case",
+    "L vs Wall case index": "l_vs_wall_case",
+    "Nf vs Wall case index": "nf_vs_wall_case",
+}
+ANALYSIS_MODES = list(SENSITIVITY_MODES)
+SENSITIVITY_MODE_TITLES = {
+    "bc_vs_wall_case": "BC vs Wall case index",
+    "z_vs_wall_case": "Z vs Wall case index",
+    "l_vs_wall_case": "L vs Wall case index",
+    "nf_vs_wall_case": "$N_f$ vs Wall case index",
+}
+SENSITIVITY_MODE_LEGACY_LABELS = {
+    "1. Z vs Wall case index": "z_vs_wall_case",
+    "2. BC vs Wall case index": "bc_vs_wall_case",
+    "3. L vs Wall case index": "l_vs_wall_case",
+    "4. Number of upper floors vs Wall case index": "nf_vs_wall_case",
+    "Number of upper floors vs Wall case index": "nf_vs_wall_case",
+    "$N_f$ vs Wall case index": "nf_vs_wall_case",
+}
 
 OUTPUT_LABELS = {
     "mu": "Median collapse flood depth, \u03bc (m)",
@@ -239,8 +254,36 @@ def valid_quality_levels_for_cases(case_templates: Iterable[dict[str, Any]]) -> 
     return valid
 
 
+def mode_key(mode: str) -> str:
+    value = str(mode).strip()
+    if value in SENSITIVITY_MODE_TITLES:
+        return value
+    if value in SENSITIVITY_MODES:
+        return SENSITIVITY_MODES[value]
+    if value in SENSITIVITY_MODE_LEGACY_LABELS:
+        return SENSITIVITY_MODE_LEGACY_LABELS[value]
+    if "." in value:
+        _, label = value.split(".", 1)
+        label = label.strip()
+        if label in SENSITIVITY_MODES:
+            return SENSITIVITY_MODES[label]
+        if label in SENSITIVITY_MODE_LEGACY_LABELS:
+            return SENSITIVITY_MODE_LEGACY_LABELS[label]
+    raise ValueError(f"Unknown sensitivity mode: {mode}")
+
+
+def sensitivity_mode_title(mode: str) -> str:
+    return SENSITIVITY_MODE_TITLES[mode_key(mode)]
+
+
 def mode_number(mode: str) -> str:
-    return str(mode).split(".", 1)[0].strip()
+    legacy_numbers = {
+        "z_vs_wall_case": "1",
+        "bc_vs_wall_case": "2",
+        "l_vs_wall_case": "3",
+        "nf_vs_wall_case": "4",
+    }
+    return legacy_numbers[mode_key(mode)]
 
 
 def float_grid(start: float, stop: float, step: float) -> np.ndarray:
