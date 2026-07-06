@@ -1,17 +1,36 @@
 from __future__ import annotations
 
 import base64
+import importlib
+import sys
 from html import escape
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+from src import utils as app_utils
+
+
+def _module_with_attrs(module, required_attrs: tuple[str, ...]):
+    if all(hasattr(module, attr) for attr in required_attrs):
+        return module
+    name = getattr(module, "__name__", "")
+    if name and sys.modules.get(name) is module:
+        return importlib.reload(module)
+    if name:
+        return importlib.import_module(name)
+    return module
+
+
+app_utils = _module_with_attrs(app_utils, ("mode_key", "sensitivity_mode_title"))
+
 from src import plotting as app_plotting
 from src import predict as app_predict
 from src import preprocess as app_preprocess
 from src import sensitivity as app_sensitivity
-from src import utils as app_utils
+
+app_sensitivity = _module_with_attrs(app_sensitivity, ("generate_sensitivity_heatmap", "mode_key"))
 
 plot_heatmap = app_plotting.plot_heatmap
 load_model_bundle = app_predict.load_model_bundle
@@ -32,7 +51,16 @@ constraint_violations = app_utils.constraint_violations
 house_image_for_boundary = app_utils.house_image_for_boundary
 normalize_case = app_utils.normalize_case
 quality_level_table = app_utils.quality_level_table
-mode_key = app_utils.mode_key
+mode_key = getattr(
+    app_utils,
+    "mode_key",
+    lambda mode: {
+        "BC vs Wall case index": "bc_vs_wall_case",
+        "Z vs Wall case index": "z_vs_wall_case",
+        "L vs Wall case index": "l_vs_wall_case",
+        "Nf vs Wall case index": "nf_vs_wall_case",
+    }.get(str(mode).strip(), str(mode).strip()),
+)
 valid_quality_levels_for_cases = app_utils.valid_quality_levels_for_cases
 
 MODEL_CACHE_VERSION = "2026-06-27-hgb-beta-l4"
