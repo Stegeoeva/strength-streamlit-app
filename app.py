@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import importlib
 from html import escape
 from pathlib import Path
 
@@ -13,12 +12,6 @@ from src import predict as app_predict
 from src import preprocess as app_preprocess
 from src import sensitivity as app_sensitivity
 from src import utils as app_utils
-
-app_utils = importlib.reload(app_utils)
-app_preprocess = importlib.reload(app_preprocess)
-app_predict = importlib.reload(app_predict)
-app_sensitivity = importlib.reload(app_sensitivity)
-app_plotting = importlib.reload(app_plotting)
 
 plot_heatmap = app_plotting.plot_heatmap
 load_model_bundle = app_predict.load_model_bundle
@@ -388,14 +381,40 @@ def _safe_number_token(value: float, *, decimals: int = 2, keep_trailing: bool =
     return text.replace("-", "minus_").replace(".", "p").lower()
 
 
-def heatmap_csv_filename(output_key: str, *, flood_depth: float, relative_flood_depth: float) -> str:
+def _safe_text_token(value: str) -> str:
+    text = str(value).strip()
+    if "." in text:
+        prefix, rest = text.split(".", 1)
+        if prefix.strip().isdigit():
+            text = rest.strip()
+    text = text.lower().replace("/", " over ").replace("-", " ")
+    chars: list[str] = []
+    previous_is_separator = False
+    for char in text:
+        if char.isalnum():
+            chars.append(char)
+            previous_is_separator = False
+        elif not previous_is_separator:
+            chars.append("_")
+            previous_is_separator = True
+    return "".join(chars).strip("_") or "sensitivity"
+
+
+def heatmap_csv_filename(
+    output_key: str,
+    *,
+    mode: str,
+    flood_depth: float,
+    relative_flood_depth: float,
+) -> str:
+    mode_token = _safe_text_token(mode)
     if output_key == "probability":
         token = f"probability_h_{_safe_number_token(flood_depth)}m"
     elif output_key == "probability_relative":
         token = f"probability_h_over_z_{_safe_number_token(relative_flood_depth, keep_trailing=True)}"
     else:
         token = output_key.lower().replace("/", "_").replace(" ", "_")
-    return f"strength_heatmap_{token}.csv"
+    return f"strength_heatmap_{mode_token}_{token}.csv"
 
 
 def display_frame(
@@ -603,13 +622,12 @@ with logo_col:
     show_image(LOGO_PATH, width=330)
 with intro_col:
     st.title("Machine Learning Based Masonry Wall Sensitivity Analysis")
-    st.write(
-        "This graphical user interface applies pretrained machine learning surrogate models to "
-        "estimate masonry wall flood fragility parameters inside the constrained domain of the "
-        "study. It supports single wall prediction and sensitivity heatmaps for fragility median "
-        "\u03bc, fragility dispersion \u03b2, and collapse probability at a selected flood depth h, while "
-        "checking wall geometry, boundary condition, vertical loading, and representative wall case "
-        "constraints before inference."
+    st.markdown(
+        r"""
+This web app uses pretrained machine learning models to rapidly estimate flood fragility for masonry walls. The user selects the wall geometry, material properties, boundary condition, and number of upper floors, and the app predicts the median collapse flood depth $\mu$, the dispersion parameter $\beta$, and collapse probabilities for selected flood-depth scenarios.
+
+The app includes two main sections. **Single Prediction** evaluates one wall configuration at a time, while **Sensitivity Heatmap** compares many configurations at once. In the heatmap, the user can choose which result to display: median collapse flood depth, fragility dispersion, normalized median collapse depth, collapse probability at a fixed flood depth, or collapse probability at a flood depth defined as a fraction of wall height. The heatmap results can also be exported as a CSV file.
+"""
     )
 
 if st.toggle("Project workflow and model context", value=False):
@@ -617,7 +635,7 @@ if st.toggle("Project workflow and model context", value=False):
 
 with st.sidebar:
     st.header("Model")
-    st.success("Loaded ML pretrained models")
+    st.success("Loaded pretrained machine learning surrogate models")
     st.dataframe(
         compact_model_frame(),
         hide_index=True,
@@ -626,7 +644,8 @@ with st.sidebar:
     )
     st.info(
         "This web app is intended for research and demonstration purposes. Predictions are "
-        "valid only within the parameter ranges considered in the underlying study and training dataset."
+        "valid only within the parameter ranges and assumptions considered in the underlying study "
+        "and training dataset."
     )
 
 tab_single, tab_sensitivity, tab_reference, tab_model = st.tabs(
@@ -710,19 +729,20 @@ with tab_sensitivity:
     top_left, top_right = st.columns([2.3, 0.9])
     with top_left:
         mode = st.selectbox("Sensitivity mode", ANALYSIS_MODES, index=0)
+        number = mode.split(".", 1)[0]
         output_key = st.selectbox(
             "Heatmap output metric",
             HEATMAP_OUTPUT_METRICS,
             format_func=lambda key: OUTPUT_LABELS[key],
         )
         st.markdown(
-            "The absolute median collapse depth $\\mu$ is expressed in metres and should not be "
-            "interpreted alone when comparing walls with different heights $Z$. The normalized quantity "
-            "$\\mu/Z$ expresses the median collapse depth relative to wall height. The dispersion "
-            "parameter $\\beta$ describes the logarithmic uncertainty of the fragility function and "
-            "should not be interpreted as a direct capacity measure. Scenario-based probabilities, "
-            "$P(C \\mid h)$ and $P(C \\mid h/Z)$, provide direct collapse-probability estimates for "
-            "absolute and relative flood-depth demands, respectively."
+            r"""
+The median collapse flood depth $\mu$ is expressed in metres. It represents the flood depth at which the selected wall configuration reaches 50% probability of collapse. When comparing walls with different heights $Z$, $\mu$ should be interpreted together with the normalized value $\mu/Z$, which expresses the median collapse depth as a fraction of wall height.
+
+The dispersion parameter $\beta$ describes the spread of the lognormal fragility curve. It is not a direct measure of wall capacity. Larger $\beta$ values indicate a more gradual transition from low to high collapse probability, meaning greater uncertainty or variability in the predicted fragility response.
+
+The probability metrics provide the most direct risk interpretation. $P(C \mid h)$ answers: "What is the probability of collapse at a selected flood depth?" $P(C \mid h/Z)$ answers: "What is the probability of collapse when the floodwater reaches a selected fraction of the wall height?" For example, $P(C \mid h/Z=0.50)$ evaluates the collapse probability when the water depth is equal to 50% of the wall height.
+"""
         )
         heatmap_flood_depth = 2.0
         heatmap_relative_depth = 0.50
@@ -748,31 +768,71 @@ with tab_sensitivity:
     with top_right:
         show_image(WALL_MECHANICS_PANELS_PATH, width=300)
 
-    common_a, common_b, common_c, common_d = st.columns(4)
-    with common_a:
-        hm_boundary = st.selectbox("Fixed boundary condition, BC", BOUNDARY_OPTIONS, index=2, key="hm_boundary")
-    hm_is_p1 = hm_boundary.startswith("P1")
-    if hm_is_p1 and st.session_state.get("hm_n_upper", 0) != 0:
-        st.session_state["hm_n_upper"] = 0
-    with common_b:
-        render_field_label("Fixed <em>N</em><sub>f</sub>")
-        hm_n_upper = st.number_input(
-            "Fixed number of upper floors",
-            min_value=0,
-            max_value=0 if hm_is_p1 else 2,
-            value=0 if hm_is_p1 else 2,
-            step=1,
-            key="hm_n_upper",
-            disabled=hm_is_p1,
-            help="P1 constrained cases require zero upper floors.",
-            label_visibility="collapsed",
-        )
-    with common_c:
-        hm_length = st.number_input("Fixed L (m)", min_value=3.0, max_value=12.0, value=5.0, step=0.5, format="%g")
-    with common_d:
-        hm_floor = st.number_input("Fixed Z (m)", min_value=2.4, max_value=4.0, value=3.0, step=0.1, format="%g")
+    hm_boundary = BOUNDARY_OPTIONS[2]
+    hm_n_upper = 2
+    hm_length = 5.0
+    hm_floor = 3.0
 
-    number = mode.split(".", 1)[0]
+    fixed_controls = []
+    if number != "1":
+        fixed_controls.append("boundary")
+    if number != "4":
+        fixed_controls.append("n_upper")
+    if number != "3":
+        fixed_controls.append("length")
+    if number != "2":
+        fixed_controls.append("floor")
+
+    if fixed_controls:
+        st.markdown("**Fixed parameters**")
+        fixed_columns = st.columns(len(fixed_controls))
+        for control_name, column in zip(fixed_controls, fixed_columns):
+            with column:
+                if control_name == "boundary":
+                    hm_boundary = st.selectbox("Fixed boundary condition, BC", BOUNDARY_OPTIONS, index=2, key="hm_boundary")
+                elif control_name == "n_upper":
+                    hm_is_p1_for_upper_floor = hm_boundary.startswith("P1")
+                    render_field_label("Fixed <em>N</em><sub>f</sub>")
+                    hm_n_upper = st.number_input(
+                        "Fixed number of upper floors",
+                        min_value=0,
+                        max_value=0 if hm_is_p1_for_upper_floor else 2,
+                        value=0 if hm_is_p1_for_upper_floor else 2,
+                        step=1,
+                        key="hm_fixed_n_upper_p1" if hm_is_p1_for_upper_floor else "hm_fixed_n_upper",
+                        disabled=hm_is_p1_for_upper_floor,
+                        help="P1 constrained cases require zero upper floors.",
+                        label_visibility="collapsed",
+                    )
+                elif control_name == "length":
+                    hm_length = st.number_input(
+                        "Fixed L (m)",
+                        min_value=3.0,
+                        max_value=12.0,
+                        value=5.0,
+                        step=0.5,
+                        format="%g",
+                        key="hm_fixed_length",
+                    )
+                elif control_name == "floor":
+                    hm_floor = st.number_input(
+                        "Fixed Z (m)",
+                        min_value=2.4,
+                        max_value=4.0,
+                        value=3.0,
+                        step=0.1,
+                        format="%g",
+                        key="hm_fixed_z",
+                    )
+    varied_notes = {
+        "1": "Varied by the selected mode: BC and wall case index.",
+        "2": "Varied by the selected mode: Z and wall case index.",
+        "3": "Varied by the selected mode: L and wall case index.",
+        "4": "Varied by the selected mode: $N_f$ and wall case index.",
+    }
+    st.caption(varied_notes.get(number, "Wall case index is varied by the selected heatmap columns."))
+
+    hm_is_p1 = hm_boundary.startswith("P1")
     floor_min = 2.5
     floor_max = 3.5
     length_min = 3.0
@@ -783,12 +843,6 @@ with tab_sensitivity:
     selected_boundaries = BOUNDARY_OPTIONS
 
     if number == "1":
-        r1, r2 = st.columns(2)
-        with r1:
-            floor_min = st.number_input("Z range min (m)", min_value=2.4, max_value=4.0, value=2.5, step=0.1, format="%g")
-        with r2:
-            floor_max = st.number_input("Z range max (m)", min_value=2.4, max_value=4.0, value=3.5, step=0.1, format="%g")
-    elif number == "2":
         boundary_default = BOUNDARY_OPTIONS
         selected_boundaries = st.multiselect("BC set", BOUNDARY_OPTIONS, default=boundary_default)
         if int(hm_n_upper) > 0 and uses_p1(selected_boundaries):
@@ -796,6 +850,12 @@ with tab_sensitivity:
                 "For BC vs wall case index heatmaps, P1 is included with zero upper floors; "
                 f"the other selected BC values use $N_f$ = {int(hm_n_upper)}."
             )
+    elif number == "2":
+        r1, r2 = st.columns(2)
+        with r1:
+            floor_min = st.number_input("Z range min (m)", min_value=2.4, max_value=4.0, value=2.5, step=0.1, format="%g")
+        with r2:
+            floor_max = st.number_input("Z range max (m)", min_value=2.4, max_value=4.0, value=3.5, step=0.1, format="%g")
     elif number == "3":
         r1, r2, r3 = st.columns(3)
         with r1:
@@ -806,9 +866,6 @@ with tab_sensitivity:
             length_step = st.number_input("L range step (m)", min_value=0.1, value=0.5, step=0.1, format="%g")
     elif number == "4":
         upper_floor_max = 0 if hm_is_p1 else 2
-        if hm_is_p1:
-            st.session_state["hm_upper_min"] = 0
-            st.session_state["hm_upper_max"] = 0
         r1, r2 = st.columns(2)
         with r1:
             render_field_label("<em>N</em><sub>f</sub> min")
@@ -818,7 +875,7 @@ with tab_sensitivity:
                 max_value=upper_floor_max,
                 value=0,
                 step=1,
-                key="hm_upper_min",
+                key="hm_upper_min_p1" if hm_is_p1 else "hm_upper_min",
                 disabled=hm_is_p1,
                 help="P1 constrained cases require zero upper floors.",
                 label_visibility="collapsed",
@@ -831,7 +888,7 @@ with tab_sensitivity:
                 max_value=upper_floor_max,
                 value=upper_floor_max,
                 step=1,
-                key="hm_upper_max",
+                key="hm_upper_max_p1" if hm_is_p1 else "hm_upper_max",
                 disabled=hm_is_p1,
                 help="P1 constrained cases require zero upper floors.",
                 label_visibility="collapsed",
@@ -839,13 +896,13 @@ with tab_sensitivity:
 
     heatmap_templates = []
     if number == "1":
-        y_values = [round(x * 0.1, 10) for x in range(int(round(floor_min * 10)), int(round(floor_max * 10)) + 1)]
-        heatmap_templates = [{"Z": z, "length": hm_length, "n_upper": int(hm_n_upper), "boundary": hm_boundary} for z in y_values]
-    elif number == "2":
         heatmap_templates = [
             {"Z": hm_floor, "length": hm_length, "n_upper": 0 if b.startswith("P1") else int(hm_n_upper), "boundary": b}
             for b in selected_boundaries
         ]
+    elif number == "2":
+        y_values = [round(x * 0.1, 10) for x in range(int(round(floor_min * 10)), int(round(floor_max * 10)) + 1)]
+        heatmap_templates = [{"Z": z, "length": hm_length, "n_upper": int(hm_n_upper), "boundary": hm_boundary} for z in y_values]
     elif number == "3":
         n_steps = int(round((length_max - length_min) / length_step)) if length_step > 0 else 0
         y_values = [round(length_min + idx * length_step, 10) for idx in range(n_steps + 1)]
@@ -914,6 +971,7 @@ with tab_sensitivity:
             data=long_df.to_csv(index=False).encode("utf-8"),
             file_name=heatmap_csv_filename(
                 result.output_key,
+                mode=result.mode,
                 flood_depth=heatmap_flood_depth,
                 relative_flood_depth=heatmap_relative_depth,
             ),
@@ -927,45 +985,108 @@ with tab_reference:
 
 with tab_model:
     st.subheader("Model Details")
+    st.markdown(
+        r"""
+### 1. Web app purpose
+
+This web app is designed to rapidly estimate the flood fragility of masonry walls using pretrained machine learning models. Instead of running a time-consuming mechanics based Limit Analysis model each time, the app uses surrogate models that have already learned from a large set of simulated wall cases.
+
+The user defines the main characteristics of a masonry wall, including wall thickness, wall height, wall length, masonry density, opening ratio, boundary condition, and number of upper floors. The app then predicts the main fragility parameters: the median collapse flood depth $\mu$ and the fragility dispersion $\beta$.
+
+### 2. How to use the app
+
+#### Single Prediction
+
+The **Single Prediction** section evaluates one wall configuration at a time. The user changes the wall parameters, checks the current configuration summary, and obtains the predicted fragility response. The app can also estimate the probability of collapse for a selected flood depth. This helps answer practical questions such as: "What is the probability of collapse if the floodwater reaches 2 m?" or "What is the probability of collapse when the floodwater reaches 50% of the wall height?"
+
+#### Sensitivity Heatmap
+
+The **Sensitivity Heatmap** section compares many wall configurations at once. The user selects the sensitivity-analysis mode, for example boundary condition versus wall case index, wall height versus wall case index, wall length versus wall case index, or number of upper floors versus wall case index. The app then generates a heatmap showing how the selected output changes across the chosen range of values.
+
+The heatmap can display the median collapse flood depth, the fragility dispersion, the normalized median collapse depth, the collapse probability at a fixed flood depth, or the collapse probability at a flood depth defined as a fraction of wall height. This makes the heatmap easier to read than listing only symbols.
+
+#### Figures and visual aids
+
+The figures and icons in the app help users understand the input parameters and model outputs. The representative wall image illustrates the meaning of the wall geometry and flood loading variables. The icon-based configuration summary visually shows the selected wall thickness, height, density, opening ratio, wall length, boundary condition, and number of upper floors. The representative wall-case image/table explains the predefined wall cases used by the model.
+
+#### CSV export
+
+After generating a sensitivity heatmap, the user can export the displayed numerical results as a CSV file. The downloaded file includes the selected sensitivity-analysis mode and selected output metric in the filename.
+"""
+    )
+    st.markdown(
+        """
+### 3. Reference study
+
+This web app was designed within the study:
+
+Georgiadis, S., Nale, M., Faggioli, M., Nikolić, Ž., and Benvenuti, E.  
+*Machine Learning Surrogates for Predicting and Interpreting Flood Fragility Parameters of Masonry Walls*.  
+AI in Civil Engineering.
+
+DOI: to be added after publication.
+"""
+    )
+    st.markdown(
+        """
+### 4. Model basis and computational efficiency
+
+The app uses pretrained machine learning surrogate models for immediate inference. Compared with repeated evaluations of the mechanics based Limit Analysis model, the surrogate models provide substantially faster batch prediction while preserving the constrained input rules used to generate the training data.
+"""
+    )
     st.dataframe(
         compact_model_frame(),
         hide_index=True,
         width="stretch",
         column_config=model_column_config(),
     )
-    st.markdown(
-        """
-The interface uses pretrained machine learning surrogate models for immediate inference.
-Compared with the mechanics-based Monte Carlo workflow, the already-computed repository
-timing study shows orders-of-magnitude acceleration for batch prediction while preserving
-the constrained input rules used to generate the training data.
-"""
-    )
     efficiency_df = pd.DataFrame(
         [
-            {"N walls": 100, "Surrogate time": format_duration(0.03982695), "Simulator time": format_duration(135.19873432960586)},
-            {"N walls": 1000, "Surrogate time": format_duration(0.16877150), "Simulator time": format_duration(1351.9873432960585)},
-            {"N walls": 10000, "Surrogate time": format_duration(1.35431820), "Simulator time": format_duration(13519.873432960585)},
+            {
+                "Number of wall configurations": 100,
+                "Machine learning surrogate time": format_duration(0.03982695),
+                "Limit Analysis model time": format_duration(135.19873432960586),
+            },
+            {
+                "Number of wall configurations": 1000,
+                "Machine learning surrogate time": format_duration(0.16877150),
+                "Limit Analysis model time": format_duration(1351.9873432960585),
+            },
+            {
+                "Number of wall configurations": 10000,
+                "Machine learning surrogate time": format_duration(1.35431820),
+                "Limit Analysis model time": format_duration(13519.873432960585),
+            },
         ]
     )
     st.table(efficiency_df)
     st.markdown(
         r"""
-### Output interpretation
+### 5. Output interpretation
 
-The surrogate model provides the parameters of a lognormal flood-fragility function for the selected wall configuration. The predicted parameter $\mu$ represents the median collapse flood depth, while $\beta$ represents the logarithmic dispersion of the fragility function.
+The app predicts the parameters of a lognormal flood-fragility function for the selected wall configuration.
+
+The median collapse flood depth $\mu$ is expressed in metres. It represents the flood depth at which the selected wall configuration reaches 50% probability of collapse. Larger values of $\mu$ generally indicate higher median flood-depth capacity.
+
+The dispersion parameter $\beta$ describes the spread of the lognormal fragility curve. It is not a direct measure of wall capacity. Larger values of $\beta$ indicate a more gradual transition from low to high collapse probability, meaning greater uncertainty or variability in the predicted fragility response.
 
 For a given flood depth $h$, the probability of collapse is evaluated as:
 
 $$
-P(C \mid h) = \Phi \left( \frac{\ln(h)-\ln(\mu)}{\beta} \right)
+P(C \mid h)=\Phi\left(\frac{\ln(h)-\ln(\mu)}{\beta}\right)
 $$
 
-where $\Phi(\cdot)$ is the standard normal cumulative distribution function. Accordingly, larger values of $\mu$ indicate higher median flood-depth capacity, whereas larger values of $\beta$ indicate greater uncertainty or variability in the transition from low to high collapse probability.
+where $\Phi(\cdot)$ is the standard normal cumulative distribution function.
+
+The probability-based outputs are useful for practical interpretation. $P(C \mid h)$ answers: "What is the probability of collapse at a selected flood depth?" For example, this can be used to evaluate collapse probability when the floodwater reaches 2 m.
+
+$P(C \mid h/Z)$ answers: "What is the probability of collapse when the floodwater reaches a selected fraction of the wall height?" For example, $P(C \mid h/Z=0.50)$ evaluates the collapse probability when the water depth is equal to 50% of the wall height.
+
+When comparing walls with different heights $Z$, the absolute median collapse depth $\mu$ should be interpreted together with the normalized value $\mu/Z$, which expresses the median collapse depth as a fraction of wall height.
 """
     )
 
 st.caption(
     "Disclaimer: This web app is intended for research and demonstration purposes. "
-    "Predictions are valid only within the parameter ranges considered in the underlying study and training dataset."
+    "Predictions are valid only within the parameter ranges and assumptions considered in the underlying study and training dataset."
 )

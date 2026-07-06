@@ -60,11 +60,11 @@ def sensitivity_axis(
 ) -> tuple[list[Any], str]:
     number = mode_number(mode)
     if number == "1":
-        return list(float_grid(floor_min, floor_max, 0.1)), "Z (m)"
-    if number == "2":
         if not selected_boundaries:
             raise ValueError("Select at least one boundary condition.")
         return [normalize_boundary(boundary) for boundary in selected_boundaries], "BC"
+    if number == "2":
+        return list(float_grid(floor_min, floor_max, 0.1)), "Z (m)"
     if number == "3":
         return list(float_grid(length_min, length_max, length_step)), "L (m)"
     if number == "4":
@@ -91,11 +91,11 @@ def _case_for_axis_value(
     case_z = float(floor_height)
 
     if number == "1":
-        case_z = float(axis_value)
-    elif number == "2":
         case_boundary = normalize_boundary(axis_value)
         if case_boundary.startswith("P1"):
             case_n_upper = 0
+    elif number == "2":
+        case_z = float(axis_value)
     elif number == "3":
         case_length = float(axis_value)
     elif number == "4":
@@ -238,8 +238,8 @@ def generate_sensitivity_heatmap(
     matrix = np.asarray(values, dtype=float).reshape(len(y_values), len(selected_levels))
 
     title_map = {
-        "1": "Z vs Wall case index",
-        "2": "BC vs Wall case index",
+        "1": "BC vs Wall case index",
+        "2": "Z vs Wall case index",
         "3": "L vs Wall case index",
         "4": "$N_f$ vs Wall case index",
     }
