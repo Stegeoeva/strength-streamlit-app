@@ -1058,10 +1058,11 @@ After generating a sensitivity heatmap, the user can export the displayed numeri
 This web app was designed within the study:
 
 Georgiadis, S., Nale, M., Faggioli, M., Nikolić, Ž., and Benvenuti, E.  
-*Machine Learning Surrogates for Predicting and Interpreting Flood Fragility Parameters of Masonry Walls*.  
+*Machine learning surrogates for predicting and interpreting flood fragility parameters of masonry walls*.
+
 AI in Civil Engineering.
 
-DOI: to be added after publication.
+DOI: [10.1007/s43503-026-00112-x](https://doi.org/10.1007/s43503-026-00112-x).
 """
     )
     st.markdown(
