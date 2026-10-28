@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import base64
 import importlib
+import mimetypes
 import sys
 from html import escape
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -354,7 +356,8 @@ def cached_model_bundle(cache_version: str):
 
 def show_image(path: Path, caption: str | None = None, *, width: int | None = None) -> None:
     if path.exists():
-        st.image(str(path), caption=caption, width=width or "stretch")
+        # Embed assets so rendering does not depend on the cloud media endpoint.
+        st.image(image_data_uri(path), caption=caption, width=width or "stretch")
     else:
         st.warning(f"Missing image: {path}")
 
@@ -369,7 +372,8 @@ def image_data_uri(path: Path) -> str:
     if not path.exists():
         return ""
     encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-    return f"data:image/png;base64,{encoded}"
+    media_type, _ = mimetypes.guess_type(path.name)
+    return f"data:{media_type or 'application/octet-stream'};base64,{encoded}"
 
 
 def show_full_width_figure(path: Path, caption: str | None = None) -> None:
@@ -988,7 +992,11 @@ The probability metrics provide the most direct risk interpretation. $P(C \mid h
             output_key=result.output_key,
             annotate=annotate_heatmap,
         )
-        st.pyplot(fig, clear_figure=True, width="stretch")
+        with BytesIO() as image_buffer:
+            fig.savefig(image_buffer, format="png", dpi=200, bbox_inches="tight")
+            encoded = base64.b64encode(image_buffer.getvalue()).decode("ascii")
+        st.image(f"data:image/png;base64,{encoded}", width="stretch")
+        fig.clear()
 
         st.subheader("Numerical Heatmap Values")
         matrix_df = result.matrix_dataframe()

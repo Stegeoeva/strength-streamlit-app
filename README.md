@@ -81,6 +81,18 @@ Images and icons used by the app are stored in `assets/`. The app uses relative 
 
 Large EPS source/export files are not required by the Streamlit runtime and are ignored by `.gitignore`.
 
+Images and heatmap figures are embedded as data URLs. This keeps them independent of Streamlit's temporary `/media/` URLs, which can fail on Community Cloud. JPEG and PNG assets retain their correct MIME types, and existing display widths are preserved.
+
+## Maintenance Checks
+
+Run the image-rendering regression checks from the project root:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+These checks load the app, exercise all four sensitivity modes, and validate the embedded images, heatmap figures, workflow image, and parameter icons. After visual changes, also inspect the app in the browser at desktop and narrow widths.
+
 ## Scientific Scope
 
 The app evaluates wall configurations inside the constrained parameter range considered by the underlying study and training dataset. It checks representative wall cases, geometry, boundary condition, upper-floor loading, and other domain constraints before inference.
@@ -99,4 +111,4 @@ This web app is intended for research and demonstration purposes. Predictions ar
 
 ## Deployment Status
 
-This repository has been prepared for GitHub upload, but it has not been deployed to Streamlit Community Cloud.
+The app is deployed on [Streamlit Community Cloud](https://strength-app-app-bluhvacmmgupjwgy4d3jtm.streamlit.app/). Updates pushed to the connected `main` branch are picked up by the deployment.
